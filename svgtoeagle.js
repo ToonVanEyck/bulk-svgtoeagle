@@ -1,11 +1,9 @@
-// var container,canvas,ctx;
 var FLIP_HORIZ = true;
 var SCALE = 1/90;
-// var DRAWSCALE = 1/SCALE;
-var SUBSAMPLING = 5; // subsampling of SVG path
+var SUBSAMPLING = 10; // subsampling of SVG path
 var SIMPLIFY = 0.1*SCALE;
 var SIMPLIFYHQ = false;
-var TRACEWIDTH = 0.1; // in mm
+var TRACEWIDTH = 0.01; // in mm
 
 // Start file download.
 function download_script(filename, out_scr) {
@@ -135,14 +133,9 @@ function unpackPoly(poly) {
   return finalPolys;
 }
 
-function drawSVG(input_svg,layer) {
-
-  TRACEWIDTH = 0.1;
-  SUBSAMPLING = 5;
+function convert_svg(input_svg) {
   FLIP_HORIZ = false;
-  var EAGLE_LAYER = layer
   var SIGNAL_NAME = "GND"
-  var EAGLE_FORMAT = "library";
 
   let out_scr = ""
   function out(x) {
@@ -169,78 +162,72 @@ function drawSVG(input_svg,layer) {
 
   var exportHeight = size.height*SCALE;
 
-  if (EAGLE_FORMAT == "board") {
-    out("CHANGE layer "+EAGLE_LAYER+"; CHANGE rank 3; CHANGE pour solid; SET WIRE_BEND 2;\n");
-  } if (EAGLE_FORMAT == "library") {
-    out("CHANGE layer "+EAGLE_LAYER+"; CHANGE pour solid; Grid mm; SET WIRE_BEND 2;\n");
-  }
+  for(group of input_svg.getElementsByTagName("g")){
+    if(!group.getAttributeNode('inkscape:label')) continue;
+    out("CHANGE layer "+group.getAttributeNode('inkscape:label').value+"; CHANGE rank 3; CHANGE pour solid; SET WIRE_BEND 2; SET width 0.01mm\n");
+    var paths = group.getElementsByTagName("path")
+    // var paths = input_svg.getElementsByTagName("path");
+    if (paths.length==0)
+      console.log("No paths found. Did you use 'Object to path' in Inkscape?");
 
-  var col = 0;
-  var paths = input_svg.getElementsByTagName("path");
-  if (paths.length==0)
-    log("No paths found. Did you use 'Object to path' in Inkscape?");
-
-  for (var i=0;i<paths.length;i++) {
-    var path = paths[i]; // SVGPathElement
-    var filled = (path.style.fill!==undefined && path.style.fill!="" && path.style.fill!="none") || path.hasAttribute('fill');
-    var stroked = (path.style.stroke!==undefined && path.style.stroke!="" && path.style.stroke!="none");
-    if (!(filled || stroked)) continue; // not drawable (clip path?)
-    var transform = path.transform.baseVal[0].matrix;
-    var l = path.getTotalLength();
-    var divs = Math.round(l*SUBSAMPLING);
-    if (divs<3) divs = 3;
-    var maxLen = l * 1.5 * SCALE / divs;
-    var p = path.getPointAtLength(0).matrixTransform(transform);
-    if (FLIP_HORIZ) p.x = size.width-p.x;
-    p = {x:p.x*SCALE, y:p.y*SCALE};
-    var last = p;
-    var polys = [];
-    var points = [];
-    for (var s=0;s<=divs;s++) {
-      p = path.getPointAtLength(s*l/divs).matrixTransform(transform);
+    for (var i=0;i<paths.length;i++) {
+      var path = paths[i]; // SVGPathElement
+      var line_width = TRACEWIDTH;
+      var filled = (path.style.fill!==undefined && path.style.fill!="" && path.style.fill!="none") || path.hasAttribute('fill');
+      var stroked = (path.style.stroke!==undefined && path.style.stroke!="" && path.style.stroke!="none");
+      if (!(filled || stroked)) continue; // not drawable (clip path?)
+      if(stroked) line_width = path.style["stroke-width"];
+      var transform = path.ownerSVGElement.createSVGMatrix();
+      if(path.transform.baseVal.length)
+        transform = path.transform.baseVal[0].matrix;
+      var l = path.getTotalLength();
+      var divs = Math.round(l*SUBSAMPLING);
+      if (divs<3) divs = 3;
+      var maxLen = l * 1.5 * SCALE / divs;
+      var p = path.getPointAtLength(0).matrixTransform(transform);
       if (FLIP_HORIZ) p.x = size.width-p.x;
       p = {x:p.x*SCALE, y:p.y*SCALE};
-      if (dist(p,last)>maxLen) {
-        if (points.length>1) {
-          points = simplify(points, SIMPLIFY, SIMPLIFYHQ);
-          polys.push(points);
+      var last = p;
+      var polys = [];
+      var points = [];
+      for (var s=0;s<=divs;s++) {
+        p = path.getPointAtLength(s*l/divs).matrixTransform(transform);
+        if (FLIP_HORIZ) p.x = size.width-p.x;
+        p = {x:p.x*SCALE, y:p.y*SCALE};
+        if (dist(p,last)>maxLen) {
+          if (points.length>1) {
+            points = simplify(points, SIMPLIFY, SIMPLIFYHQ);
+            polys.push(points);
+          }
+          points = [p];
+        } else {
+          points.push(p);
         }
-        points = [p];
-      } else {
-        points.push(p);
+        last = p;
       }
-      last = p;
-    }
-    if (points.length>1) {
-      points = simplify(points, SIMPLIFY, SIMPLIFYHQ);
-      polys.push(points);
-    }
-
-    if (filled)
-      polys = unpackPoly(polys);
-
-    polys.forEach(function (points) {
-      if (points.length<2) return;
-      var scriptLine;
-      if (filled) {
-        // re-add final point so we loop around
-        points.push(points[0]);
-        if (EAGLE_FORMAT == "board") {
-          scriptLine = "polygon "+SIGNAL_NAME+" "+TRACEWIDTH+"mm"
-        } if (EAGLE_FORMAT == "library") {
-          scriptLine = "polygon "+TRACEWIDTH+"mm"
-        }
-      } else { // lines
-        if (EAGLE_FORMAT == "board") {
-          scriptLine = "wire "+SIGNAL_NAME+" "+TRACEWIDTH+"mm"
-        } if (EAGLE_FORMAT == "library") {
-          scriptLine = "wire "+TRACEWIDTH+"mm"
-        }
+      if (points.length>1) {
+        points = simplify(points, SIMPLIFY, SIMPLIFYHQ);
+        polys.push(points);
       }
-      points.forEach(function(p) { scriptLine += ` (${p.x.toFixed(6)}mm ${(exportHeight-p.y).toFixed(6)}mm)`});
-      scriptLine += ";"
-      out(scriptLine+"\n");
-    });
+
+      if (filled)
+        polys = unpackPoly(polys);
+
+      polys.forEach(function (points) {
+        if (points.length<2) return;
+        var scriptLine;
+        if (filled) {
+          // re-add final point so we loop around
+          points.push(points[0]);
+          scriptLine = "polygon "+SIGNAL_NAME+" "+line_width+"mm"
+        } else { // lines
+          scriptLine = "line "+line_width+"mm"
+        }
+        points.forEach(function(p) { scriptLine += ` (${p.x.toFixed(6)}mm ${(exportHeight-p.y).toFixed(6)}mm)`});
+        scriptLine += ";"
+        out(scriptLine+"\n");
+      });
+    }
   }
   return out_scr;
 }
@@ -259,12 +246,10 @@ function convert() {
     var parser = new DOMParser();
     var svg = parser.parseFromString(file_data,'text/html').lastChild.lastChild.firstChild
     
-    var file_patten = /([^\\\/]+\.([a-zA-Z]+))\.svg$/i;
+    var file_patten = /([^\\\/]+)\.svg$/i;
 
     var base_name = file_name.match(file_patten)[1]
-    var layer = file_name.match(file_patten)[2]
-
-    download_script(base_name,drawSVG(svg,layer));
+    download_script(base_name,convert_svg(svg));
   };
   
     reader.fileName = file.name

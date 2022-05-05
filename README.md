@@ -7,11 +7,8 @@ I have moddified his code to support bulk file selection and conversion. I also 
 
 Usage
 -----
-Files must have folowing format:
-```
-filename.layer.svg
-```
-The layer defined in the filename will define the eagle layer of the script.
+Upload svg's made with inkscape only!
+The inkscape layer label is used to set the eagle layer.
 
 [Convert Files!](https://toonvaneyck.github.io/bulk-svgtoeagle/)
 
