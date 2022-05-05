@@ -1,18 +1,17 @@
-svgtoeagle
-==========
+bulk-svgtoeagle
+===============
 
-Online converter for simple SVG files from Inkscape
-to Eagle CAD.
+Online converter for simple SVG files from Inkscape to Eagle CAD. Based on the work by [Gorodon Williams](https://github.com/gfwilliams/svgtoeagle).
 
-[![SVG to Eagle CAD](https://img.youtube.com/vi/OWuIbHIiJ6k/0.jpg)](https://www.youtube.com/watch?v=OWuIbHIiJ6k)
+I have moddified his code to support bulk file selection and conversion. I also removed the GUI elements of the webpage as the obstructed these moddifications.
 
-This is different to other converters because it:
+Usage
+-----
+Files must have folowing format:
+```
+filename.layer.svg
+```
+The layer defined in the filename will define the eagle layer of the script.
 
-* Actually outputs polygons as polygons (it doesn't pre-hatch or convert to a bitmap), keeping the board file from getting huge
-* It handles polygons with holes
-* Copes with both filled and unfilled paths
-* Doesn't need installing - just upload an SVG, and copy/paste the script
+[Convert Files!](https://github.com/ToonVanEyck/bulk-svgtoeagle)
 
-[TRY IT NOW!](https://gfwilliams.github.io/svgtoeagle/)
-
-Like this? Please support me and [check out Espruino!](http://www.espruino.com)

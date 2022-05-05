@@ -1,30 +1,25 @@
-var container,canvas,ctx;
+// var container,canvas,ctx;
 var FLIP_HORIZ = true;
 var SCALE = 1/90;
-var DRAWSCALE = 1/SCALE;
+// var DRAWSCALE = 1/SCALE;
 var SUBSAMPLING = 5; // subsampling of SVG path
 var SIMPLIFY = 0.1*SCALE;
 var SIMPLIFYHQ = false;
 var TRACEWIDTH = 0.1; // in mm
 
 // Start file download.
-function download_script(filename, text) {
-  var text = document.getElementById("result").value;
-  var element = document.createElement('a');
+function download_script(filename, out_scr) {
+  var text = out_scr;
 
-  if (typeof filename === 'undefined') { 
-    filename = 'import_svg.scr'; 
-  } else {
-    var patternFileName = /([^\\\/]+)\.svg$/i;
-    var filename= filename.match(patternFileName)[1] + ".scr";
-  }
+  var element = document.createElement('a');
+  element.style.display = 'none';
+
+  var filename = filename + ".scr";
 
   element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
   element.setAttribute('download', filename);
-  element.style.display = 'none';
   document.body.appendChild(element);
   element.click();
-
   document.body.removeChild(element);
 }
 
@@ -140,80 +135,39 @@ function unpackPoly(poly) {
   return finalPolys;
 }
 
-function plotPoly(points, isFilled) {
-  ctx.beginPath();
-  ctx.moveTo(points[0].x*DRAWSCALE, points[0].y*DRAWSCALE);
-  for (var i=1;i<points.length;i++)
-    ctx.lineTo(points[i].x*DRAWSCALE, points[i].y*DRAWSCALE);
-  if (isFilled) {
-    ctx.closePath();
-    ctx.fill();
-  }
-  ctx.stroke();
-}
+function drawSVG(input_svg,layer) {
 
-function drawSVG() {
-  if (container===undefined) return;
-  TRACEWIDTH = parseFloat(document.getElementById("traceWidth").value);
-  SUBSAMPLING = parseFloat(document.getElementById("subsampling").value);
-  FLIP_HORIZ = document.getElementById("flipImage").checked;
-  var EAGLE_LAYER = document.getElementById("eagleLayer").value;
-  var SIGNAL_NAME = document.getElementById("signalName").value;
-  var EAGLE_FORMAT = document.querySelector('input[name="eagleformat"]:checked').value;
+  TRACEWIDTH = 0.1;
+  SUBSAMPLING = 5;
+  FLIP_HORIZ = false;
+  var EAGLE_LAYER = layer
+  var SIGNAL_NAME = "GND"
+  var EAGLE_FORMAT = "library";
 
-  container.style.display="block";
-
-  var logarea = document.getElementById("log");
-  logarea.innerHTML = "";
-  logarea.style.display = 'none';
-  function log(x) {
-    logarea.innerHTML += x+"\n";
-    logarea.style.display = 'block';
-  }
-
-  var dimensions_area = document.getElementById("dimensions");
-  dimensions_area.innerHTML = "";
-  function dimensions_log(x) {
-    dimensions_area.innerHTML += x+"\n";
-  }
-
-  var textarea = document.getElementById("result");
-  textarea.value = "";
-  document.getElementById("dwn-btn").disabled = true;
+  let out_scr = ""
   function out(x) {
-    textarea.value += x;
-    document.getElementById("dwn-btn").disabled = false;
+    out_scr += x;
   }
-  var size = container.viewBox.baseVal;
+  var size = input_svg.viewBox.baseVal;
   if (size.width==0 || size.height==0) {
     size = {
-      width : container.width.baseVal.value,
-      height : container.height.baseVal.value
+      width : input_svg.width.baseVal.value,
+      height : input_svg.height.baseVal.value
     };
   }
 
-  var specifiedWidth = container.getAttribute("width");
+  var specifiedWidth = input_svg.getAttribute("width");
   if (specifiedWidth && specifiedWidth.match(/[0-9.]*mm/)) {
     specifiedWidth = parseFloat(specifiedWidth.slice(0,-2));
     SCALE = specifiedWidth / size.width;
-    log("SVG width detected in mm \\o/");
   } else if (specifiedWidth && specifiedWidth.match(/[0-9.]*in/)) {
     specifiedWidth = parseFloat(specifiedWidth.slice(0,-2))*25.4;
     SCALE = specifiedWidth / size.width;
-    log("SVG width detected in inches");
   } else {
-    SCALE = 1/parseFloat(document.getElementById("svgScale").value);
-    log("SVG width not in mm - GUESSING dimensions based on scale factor");
-    log("Try setting document size in mm in Inkscape's Document Properties");
+    SCALE = 1/parseFloat(1);
   }
-  dimensions_log(`Dimensions ${(size.width*SCALE).toFixed(2)}mm x ${(size.height*SCALE).toFixed(2)}mm`);
 
   var exportHeight = size.height*SCALE;
-
-  var drawMultiplier = (window.innerWidth-40) / size.width;
-  canvas.width = size.width*drawMultiplier;
-  canvas.height = size.height*drawMultiplier;
-  DRAWSCALE = drawMultiplier / SCALE;
 
   if (EAGLE_FORMAT == "board") {
     out("CHANGE layer "+EAGLE_LAYER+"; CHANGE rank 3; CHANGE pour solid; SET WIRE_BEND 2;\n");
@@ -221,21 +175,17 @@ function drawSVG() {
     out("CHANGE layer "+EAGLE_LAYER+"; CHANGE pour solid; Grid mm; SET WIRE_BEND 2;\n");
   }
 
-  ctx.beginPath();
-  ctx.lineWidth = 1;
-  var scale = 1/96;
   var col = 0;
-  var paths = container.getElementsByTagName("path");
+  var paths = input_svg.getElementsByTagName("path");
   if (paths.length==0)
     log("No paths found. Did you use 'Object to path' in Inkscape?");
-  var anyVisiblePaths = false;
+
   for (var i=0;i<paths.length;i++) {
     var path = paths[i]; // SVGPathElement
     var filled = (path.style.fill!==undefined && path.style.fill!="" && path.style.fill!="none") || path.hasAttribute('fill');
     var stroked = (path.style.stroke!==undefined && path.style.stroke!="" && path.style.stroke!="none");
     if (!(filled || stroked)) continue; // not drawable (clip path?)
-    anyVisiblePaths = true;
-    var transform = path.ownerSVGElement.getScreenCTM().inverse().multiply(path.getScreenCTM())
+    var transform = path.transform.baseVal[0].matrix;
     var l = path.getTotalLength();
     var divs = Math.round(l*SUBSAMPLING);
     if (divs<3) divs = 3;
@@ -255,8 +205,6 @@ function drawSVG() {
           points = simplify(points, SIMPLIFY, SIMPLIFYHQ);
           polys.push(points);
         }
-        //ctx.strokeStyle = `hsl(${col+=20},100%,50%)`;
-        //plotPoly(points);
         points = [p];
       } else {
         points.push(p);
@@ -267,16 +215,12 @@ function drawSVG() {
       points = simplify(points, SIMPLIFY, SIMPLIFYHQ);
       polys.push(points);
     }
-    ctx.strokeStyle = `hsl(${col+=40},100%,50%)`;
-    ctx.fillStyle = `hsla(${col+=40},100%,50%,0.4)`;
 
-    //plotPoly(points);
     if (filled)
       polys = unpackPoly(polys);
 
     polys.forEach(function (points) {
       if (points.length<2) return;
-      plotPoly(points, filled);
       var scriptLine;
       if (filled) {
         // re-add final point so we loop around
@@ -298,56 +242,32 @@ function drawSVG() {
       out(scriptLine+"\n");
     });
   }
-  if (!anyVisiblePaths)
-    log("No paths with fills or strokes found.");
-  container.style.display="none";
+  return out_scr;
 }
 
-window.addEventListener("load", function(event) {
-  container = document.getElementById("container");
-  canvas = document.getElementById("can");
-  ctx = canvas.getContext('2d');
-  //loadSVG("test.svg");
-});
-
-// load SVG from online - not used
-function loadSVG(url) {
-  var xhr = new XMLHttpRequest();
-  xhr.onreadystatechange = function() {
-    if (this.readyState == 4 && this.status == 200) {
-       var svgs = xhr.responseXML.getElementsByTagName("svg");
-       if (svgs.length) {
-         var newSVG = svgs[0];
-         document.getElementById("container").replaceWith(newSVG);
-         container = newSVG;
-         setTimeout(drawSVG,0);
-       } else alert("No SVG loaded");
-    }
-  };
-  xhr.open("GET", url, true);
-  xhr.send();
-}
 
 function convert() {
-//document.getElementById("fileLoader").onchange = function(event) {
-  //if (event.target.files.length != 1) {
-  //  alert("Select only one file");
-  //  return;
-  //}
-  var fileToLoad = document.getElementById("fileLoader").files[0];
+  var allFiles = document.getElementById("fileLoader").files;
+  
+  
+  for(file of allFiles){
+    var reader = new FileReader();
+    reader.onload = function(event) {
+    console.log(event.target.fileName)
+    var file_name = event.target.fileName
+    var file_data = event.target.result;
+    var parser = new DOMParser();
+    var svg = parser.parseFromString(file_data,'text/html').lastChild.lastChild.firstChild
+    
+    var file_patten = /([^\\\/]+\.([a-zA-Z]+))\.svg$/i;
 
-  var reader = new FileReader();
-  reader.onload = function(event) {
-    var div = document.createElement('div');
-    div.innerHTML = event.target.result;
-    var svgs = div.getElementsByTagName("svg");
-    if (svgs.length) {
-      var newSVG = svgs[0];
-      container.replaceWith(newSVG);
-      container = newSVG;
-      setTimeout(drawSVG,0);
-    } else alert("No SVG loaded");
+    var base_name = file_name.match(file_patten)[1]
+    var layer = file_name.match(file_patten)[2]
+
+    download_script(base_name,drawSVG(svg,layer));
   };
-  reader.readAsText(fileToLoad);
-  //reader.readAsText(event.target.files[0]);
+  
+    reader.fileName = file.name
+    reader.readAsText(file);
+  }
 }
