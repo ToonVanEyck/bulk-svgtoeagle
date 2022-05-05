@@ -13,5 +13,5 @@ filename.layer.svg
 ```
 The layer defined in the filename will define the eagle layer of the script.
 
-[Convert Files!](https://github.com/ToonVanEyck/bulk-svgtoeagle)
+[Convert Files!](https://toonvaneyck.github.io/bulk-svgtoeagle/)
 
