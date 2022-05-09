@@ -176,7 +176,7 @@ function convert_svg(input_svg) {
       var path = paths[i]; // SVGPathElement
       var line_width = TRACEWIDTH;
       var filled = (path.style.fill!==undefined && path.style.fill!="" && path.style.fill!="none") || path.hasAttribute('fill');
-      var stroked = (path.style.stroke!==undefined && path.style.stroke!="" && path.style.stroke!="none" && parseInt(path.style["stroke-width"])>0.00001);
+      var stroked = (path.style.stroke!==undefined && path.style.stroke!="" && path.style.stroke!="none" && parseFloat(path.style["stroke-width"])>0.00001);
       if (!(filled || stroked)) continue; // not drawable (clip path?)
       if(stroked) line_width = path.style["stroke-width"];
       var transform = path.ownerSVGElement.createSVGMatrix();
