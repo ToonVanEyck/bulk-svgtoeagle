@@ -4,6 +4,7 @@ var SUBSAMPLING = 10; // subsampling of SVG path
 var SIMPLIFY = 0.1*SCALE;
 var SIMPLIFYHQ = false;
 var TRACEWIDTH = 0.01; // in mm
+var SUPPORTED_LAYERS = ["Top","Route2","Route3","Route4","Route5","Route6","Route7","Route8","Route9","Route10","Route11","Route12","Route13","Route14","Route15","Bottom","Pads","Vias","Unrouted","Dimension","tPlace","bPlace","tOrigins","bOrigins","tNames","bNames","tValues","bValues","tStop","bStop","tCream","bCream","tFinish","bFinish","tGlue","bGlue","tTest","bTest","tKeepout","bKeepout","tRestrict","bRestrict","vRestrict","Drills","Holes","Milling","Measures","Document","Reference","tDocu","bDocu"]
 
 // Start file download.
 function download_script(filename, out_scr) {
@@ -164,6 +165,7 @@ function convert_svg(input_svg) {
 
   for(group of input_svg.getElementsByTagName("g")){
     if(!group.getAttributeNode('inkscape:label')) continue;
+    if(SUPPORTED_LAYERS.indexOf(group.getAttributeNode('inkscape:label').value) == -1) continue;
     out("CHANGE layer "+group.getAttributeNode('inkscape:label').value+"; CHANGE rank 3; CHANGE pour solid; SET WIRE_BEND 2; SET width 0.01mm\n");
     var paths = group.getElementsByTagName("path")
     // var paths = input_svg.getElementsByTagName("path");
